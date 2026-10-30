@@ -1,0 +1,48 @@
+src/
+├── assets/          (for images, logos)
+├── components/      (reusable pieces like Navbar, Footer, RestaurantCard)
+├── pages/           
+│   ├── customer/    (Home, RestaurantList, RestaurantDetails, Cart, Checkout, Orders, Profile, Login, Register)
+│   └── admin/       (Dashboard, ManageRestaurants, ManageMenu, ManageOrders, ManageUsers)
+├── services/        (for API calls using Axios)
+├── App.jsx          (Main routing file)
+└── main.jsx         (Entry point)
+
+✅ Implemented Features
+1. 
+User AuthenticationUser Registration & Login: Fully functional forms allowing users to sign up and log in securely.
+Session Management: User data and IDs are saved in localStorage to maintain login state across pages.
+
+2. Restaurant & Menu BrowsingRestaurant Listing: Displays all available restaurants with their addresses and ratings.
+
+Menu Retrieval: Fetches and displays menu items (/restaurants/{id}/menu) tailored to each specific restaurant.
+
+3. Complete Cart Management (Frontend & Backend)Add to Cart: Users can add food items to their cart with real-time "Added ✓" inline button feedback on the menu page.
+
+View Cart: A dedicated cart page (/cart) that calculates sub-totals per item and displays the live grand total.
+
+Quantity Controls (+ / -): Instant updates using interactive buttons that sync with your backend (PUT /cart/update/{cartId}).
+
+Item Removal & Clear Cart: Ability to remove individual items (DELETE /cart/remove/{cartId}) or wipe the entire cart clean (DELETE /cart/clear/{userId}).
+
+Stable UI Layout: Configured with unique item.cartId keys so items stay locked in place without shuffling when quantities are updated.
+
+
+🚀 Yet to ImplementNow
+ that your cart is fully operational, we are ready to build the final core module:
+ 
+ Phase 5: 
+ 
+ Checkout & Order Placement 
+ 
+ 1. Creating a checkout form where the user enters their delivery address.
+ 
+ 2. Sending a final order request to your backend order controller (e.g., converting the cart items into an active order).
+ 
+ Order Success / Confirmation 
+ 
+ 1. ScreenDisplaying an order success page with an Order ID and estimated delivery details.
+ 
+ Order History (Optional Bonus)
+ 
+ 1. Allowing users to view their past orders and track their status.
