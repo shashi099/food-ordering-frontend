@@ -6,6 +6,8 @@ import RestaurantDetails from './pages/customer/RestaurantDetails';
 import Cart from './pages/customer/Cart';
 import AdminRestaurantList from './pages/admin/AdminRestaurantList'; // 👈 Updated import filename
 import AdminRestaurantDetails from './pages/admin/AdminRestaurantDetails';
+import UserOrders from './pages/customer/UserOrders';
+import OrderDetails from './pages/customer/OrderDetails';
  
 
 function App() {
@@ -21,6 +23,9 @@ function App() {
         <Route path="/admin/restaurants" element={<AdminRestaurantList />} /> {/* 👈 Updated component */}
         {/* Admin Restaurant Details Menu Management */}
         <Route path="/admin/restaurant/:id" element={<AdminRestaurantDetails />} />
+        <Route path="/orders" element={<UserOrders />} />
+
+        <Route path="/orders/:orderId" element={<OrderDetails />} />
       </Routes>
     </Router>
   );

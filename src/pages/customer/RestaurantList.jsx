@@ -45,12 +45,23 @@ export default function RestaurantList() {
         
         {/* Buttons Group */}
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button 
-            onClick={() => navigate('/cart')} 
-            style={{ padding: '8px 15px', background: '#ffa502', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-          >
-            🛒 Go to Cart
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+        {/* ✅ My Orders Button */}
+        <button 
+          onClick={() => navigate('/orders')} 
+          style={{ padding: '8px 14px', background: '#f1f2f6', color: '#2f3542', border: '1px solid #ced6e0', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+        >
+          📦 My Orders
+        </button>
+
+        {/* Cart Button */}
+        <button 
+          onClick={() => navigate('/cart')} 
+          style={{ padding: '8px 14px', background: '#ffa502', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+        >
+          🛒 Cart
+        </button>
+      </div>
           
           <button 
             onClick={handleLogout} 

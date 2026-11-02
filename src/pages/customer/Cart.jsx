@@ -4,36 +4,34 @@ import API from '../../services/api';
 
 export default function Cart() {
   const [cartData, setCartData] = useState(null);
+  const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
   const navigate = useNavigate();
 
   const fetchCart = async () => {
     try {
-      const storedUser = localStorage.getItem('user');
-      if (!storedUser) {
+      setLoading(true);
+      const user = JSON.parse(localStorage.getItem('user'));
+      const userId = user?.id || user?.userId;
+
+      if (!userId) {
         navigate('/login');
         return;
       }
 
-      const user = JSON.parse(storedUser);
-      const userId = user?.id || user?.userId;
-
-      if (!userId) {
-        setError('User ID not found in session. Please log in again.');
-        setLoading(false);
-        return;
-      }
-
+      // Exact endpoint based on your structure
       const response = await API.get(`/cart/user/${userId}`);
-      if (response.data && response.data.data) {
-        setCartData(response.data.data);
-      } else {
-        setCartData({ items: [], totalAmount: 0 });
-      }
+      console.log("Cart Response:", response.data);
+
+      // Safely extracting items based on your backend response pattern
+      const fetchedItems = response.data?.data?.items || response.data?.data?.data || response.data?.items || [];
+      setCartData(response.data?.data || {});
+      setCartItems(fetchedItems);
     } catch (err) {
-      console.error('Cart fetch error:', err);
-      setError('Failed to load cart items from backend.');
+      console.error('Failed to load cart:', err);
+      setError('Failed to load cart items.');
     } finally {
       setLoading(false);
     }
@@ -43,134 +41,179 @@ export default function Cart() {
     fetchCart();
   }, []);
 
-  // ✅ Handle Quantity Update (+ / -)
-  const handleUpdateQuantity = async (cartId, currentQuantity, delta) => {
-    const newQuantity = currentQuantity + delta;
-
-    // If quantity drops below 1, prompt or remove instead of throwing backend error
-    if (newQuantity <= 0) {
-      handleRemoveItem(cartId);
-      return;
-    }
-
-    try {
-      // Matches your UpdateQuantityRequest body { "quantity": value }
-      await API.put(`/cart/update/${cartId}`, { quantity: newQuantity });
-      // Refresh cart to show updated sub-totals and grand total
-      fetchCart();
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update quantity.');
-    }
-  };
-
-  // ✅ Remove single item handler
-  const handleRemoveItem = async (cartId) => {
-    try {
-      await API.delete(`/cart/remove/${cartId}`);
-      fetchCart();
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to remove item.');
-    }
-  };
-
-  // ✅ Clear entire cart handler
-  const handleClearCart = async () => {
+  // ✅ Handle Place Order (Only requires userId as per your new OrderRequest)
+  const handlePlaceOrder = async () => {
     try {
       const user = JSON.parse(localStorage.getItem('user'));
       const userId = user?.id || user?.userId;
-      if (!userId) return;
 
-      await API.delete(`/cart/clear/${userId}`);
-      setCartData({ items: [], totalAmount: 0 });
+      if (!userId) {
+        alert('Please login first!');
+        navigate('/login');
+        return;
+      }
+
+      if (cartItems.length === 0) {
+        alert('Your cart is empty!');
+        return;
+      }
+
+      setActionLoading(true);
+
+      // Payload strictly matches your updated OrderRequest: private Long userId;
+      const payload = { userId };
+
+      const response = await API.post('/orders/place', payload);
+      const placedOrder = response.data?.data || response.data;
+      
+      alert(`🎉 Order placed successfully! Order ID: ${placedOrder.orderId || 'Confirmed'}`);
+      
+      // Refresh cart or redirect
+      setCartItems([]);
+      navigate('/orders'); // Redirects user to see their active/past orders immediately
+
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to clear cart.');
+      console.error('Failed to place order:', err.response || err);
+      alert(err.response?.data?.message || 'Failed to place order. Please try again.');
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  if (loading) return <div style={{ textAlign: 'center', marginTop: '50px' }}>Loading cart...</div>;
-  if (error) return <div style={{ textAlign: 'center', marginTop: '50px', color: 'red' }}>{error}</div>;
+  // ✅ Handle Clear Cart
+  const handleClearCart = async () => {
+    if (!window.confirm('Are you sure you want to clear your cart?')) return;
+
+    try {
+      const user = JSON.parse(localStorage.getItem('user'));
+      const userId = user?.id || user?.userId;
+
+      if (!userId) return;
+
+      setActionLoading(true);
+      // Adjust endpoint path if your backend uses a different route for clearing (e.g., /cart/clear/{userId} or /cart/{userId})
+      await API.delete(`/cart/clear/${userId}`);
+      
+      setCartItems([]);
+      alert('Cart cleared successfully.');
+    } catch (err) {
+      console.error('Failed to clear cart:', err.response || err);
+      alert(err.response?.data?.message || 'Failed to clear cart.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Calculate total amount dynamically if not provided by backend
+  const calculateTotal = () => {
+    if (cartData?.totalAmount !== undefined && cartData?.totalAmount !== null) {
+      return cartData.totalAmount;
+    }
+    return cartItems.reduce((sum, item) => {
+      const price = item.price || item.menuItem?.price || 0;
+      const qty = item.quantity || 1;
+      return sum + (price * qty);
+    }, 0);
+  };
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh', fontFamily: 'sans-serif' }}>
+        <p style={{ fontSize: '18px', color: '#666' }}>Loading your cart...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ textAlign: 'center', marginTop: '50px', fontFamily: 'sans-serif' }}>
+        <p style={{ color: '#ff4757', fontSize: '16px' }}>{error}</p>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ maxWidth: '700px', margin: '30px auto', padding: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <button onClick={() => navigate('/restaurants')} style={{ padding: '6px 12px', cursor: 'pointer' }}>
-          ← Back to Restaurants
-        </button>
+    <div style={{ maxWidth: '800px', margin: '40px auto', padding: '20px', fontFamily: 'sans-serif' }}>
+      {/* Top Header & Navigation */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', borderBottom: '2px solid #f1f2f6', paddingBottom: '15px' }}>
+        <div>
+          <h2 style={{ margin: '0 0 5px', color: '#2f3542' }}>🛒 Your Shopping Cart</h2>
+          <p style={{ margin: '0', color: '#747d8c', fontSize: '14px' }}>Review your selected dishes before checkout</p>
+        </div>
 
-        {cartData && cartData.items && cartData.items.length > 0 && (
-          <button 
-            onClick={handleClearCart}
-            style={{ padding: '6px 12px', background: '#ff4757', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}
-          >
-            Clear Cart 🗑️
-          </button>
-        )}
+        <button 
+          onClick={() => navigate('/restaurants')} 
+          style={{ padding: '8px 14px', background: '#f1f2f6', color: '#2f3542', border: '1px solid #ced6e0', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+        >
+          ← Continue Shopping
+        </button>
       </div>
 
-      <h2>Your Shopping Cart</h2>
-
-      {!cartData || !cartData.items || cartData.items.length === 0 ? (
-        <div style={{ textAlign: 'center', marginTop: '40px' }}>
-          <p style={{ color: '#666' }}>Your cart is empty.</p>
+      {cartItems.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px', background: '#f8f9fa', borderRadius: '8px', border: '1px dashed #ced6e0' }}>
+          <p style={{ color: '#747d8c', fontSize: '16px', marginBottom: '15px' }}>Your cart is currently empty.</p>
           <button 
-            onClick={() => navigate('/restaurants')} 
-            style={{ padding: '10px 20px', background: '#2ed573', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginTop: '10px' }}
+            onClick={() => navigate('/restaurants')}
+            style={{ padding: '10px 20px', background: '#1e90ff', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
           >
-            Browse Restaurants
+            Explore Restaurants 🍔
           </button>
         </div>
       ) : (
         <div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '20px' }}>
-            {cartData.items.map((item, index) => (
-              <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #eee', padding: '15px', borderRadius: '6px' }}>
-                <div>
-                  <h4 style={{ margin: '0 0 5px' }}>{item.foodName}</h4>
-                  <p style={{ margin: '0 0 8px', color: '#666', fontSize: '14px' }}>Price: ₹{item.price} each</p>
-                  
-                  {/* Quantity Control Buttons */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <button 
-                      onClick={() => handleUpdateQuantity(item.cartId, item.quantity, -1)}
-                      style={{ width: '28px', height: '28px', background: '#f1f2f6', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                    >
-                      -
-                    </button>
-                    <span style={{ fontWeight: 'bold', minWidth: '20px', textAlign: 'center' }}>{item.quantity}</span>
-                    <button 
-                      onClick={() => handleUpdateQuantity(item.cartId, item.quantity, 1)}
-                      style={{ width: '28px', height: '28px', background: '#f1f2f6', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                    >
-                      +
-                    </button>
+          {/* Action Header: Clear Cart Button */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px' }}>
+            <button 
+              onClick={handleClearCart}
+              disabled={actionLoading}
+              style={{ padding: '6px 12px', background: 'transparent', color: '#ff4757', border: '1px solid #ff4757', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}
+            >
+              🗑️ Clear Cart
+            </button>
+          </div>
+
+          {/* Cart Items List */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '30px' }}>
+            {cartItems.map((item, index) => {
+              const name = item.foodName || item.menuItem?.foodName || 'Item Name Unavailable';
+              const price = item.price || item.menuItem?.price || 0;
+              const quantity = item.quantity || 1;
+              const description = item.description || item.menuItem?.description || '';
+
+              return (
+                <div 
+                  key={item.cartId || item.id || index} 
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e1e1e1', padding: '15px 20px', borderRadius: '8px', background: 'white', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}
+                >
+                  <div>
+                    <h4 style={{ margin: '0 0 5px', fontSize: '16px', color: '#2f3542' }}>{name}</h4>
+                    {description && <p style={{ margin: '0 0 5px', color: '#747d8c', fontSize: '13px' }}>{description}</p>}
+                    <span style={{ fontSize: '13px', color: '#747d8c' }}>Qty: <strong>{quantity}</strong></span>
+                  </div>
+
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ color: '#ff4757', fontWeight: 'bold', fontSize: '16px' }}>₹{price * quantity}</span>
                   </div>
                 </div>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                  <strong style={{ fontSize: '16px', color: '#2f3542' }}>₹{item.subTotal}</strong>
-                  <button 
-                    onClick={() => handleRemoveItem(item.cartId)}
-                    style={{ background: 'transparent', border: 'none', color: '#ff4757', cursor: 'pointer', fontSize: '18px', fontWeight: 'bold' }}
-                    title="Remove item"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          <div style={{ borderTop: '2px solid #ddd', paddingTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3>Total Amount:</h3>
-            <h3 style={{ color: '#ff4757' }}>₹{cartData.totalAmount}</h3>
-          </div>
+          {/* Checkout & Bill Summary Box */}
+          <div style={{ background: '#f8f9fa', padding: '25px', borderRadius: '10px', border: '1px solid #dcdde1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <p style={{ margin: '0 0 5px', color: '#747d8c', fontSize: '14px' }}>Total Amount</p>
+              <h2 style={{ margin: '0', color: '#2f3542', fontSize: '24px' }}>₹{calculateTotal()}</h2>
+            </div>
 
-          <button 
-            onClick={() => alert('Proceeding to Checkout & Order Placement next!')}
-            style={{ width: '100%', marginTop: '20px', padding: '12px', background: '#2ed573', color: 'white', border: 'none', borderRadius: '6px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}
-          >
-            Proceed to Checkout
-          </button>
+            <button 
+              onClick={handlePlaceOrder}
+              disabled={actionLoading}
+              style={{ padding: '14px 28px', background: '#2ed573', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', boxShadow: '0 4px 6px rgba(46,213,115,0.2)' }}
+            >
+              {actionLoading ? 'Processing...' : 'Place Order 🚀'}
+            </button>
+          </div>
         </div>
       )}
     </div>
